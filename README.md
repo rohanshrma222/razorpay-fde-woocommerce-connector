@@ -1,74 +1,106 @@
 # WooCommerce MCP Connector
 
-A read-only [MCP](https://modelcontextprotocol.io) server that lets an AI agent (e.g. Razorpay
-Agent Studio, Claude Desktop, or any other MCP client) list, fetch, and search orders from a
-WooCommerce store — without ever being able to create, modify, or cancel anything.
+A read-only tool that lets an AI agent (Razorpay Agent Studio, Claude Desktop, or any other
+[MCP](https://modelcontextprotocol.io)-compatible agent) look up orders from a WooCommerce
+store — list them, fetch one by ID, search by customer — without ever being able to create,
+change, or cancel anything.
 
 Built as the Option 3 take-home for the Forward-Deployed Engineer, Agent Studio application.
 
-## Overview
+---
 
-The connector is a small Node/TypeScript process speaking MCP over stdio. It authenticates to
-WooCommerce's REST API, exposes three tools (`list_orders`, `get_order`, `search_orders`), and
-handles rate limiting/timeouts/retries so a calling agent never has to deal with transient
-failures itself.
+## Quick start
 
-## Prerequisites
+This gets you from zero to "it's working" in about 5 minutes. You'll need
+[Node.js](https://nodejs.org) (v18+) and [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+installed and running.
 
-- Node.js ≥ 18.17
-- A WooCommerce store with REST API credentials (Consumer Key + Secret with **Read** permission)
-- Docker, if you want to spin up the same disposable local store used to build and test this
-  (see `dev-store/`) rather than pointing at a real WooCommerce site
-
-## Setup
-
+**1. Install dependencies**
 ```bash
 npm install
-cp .env.example .env
-# fill in WC_SITE_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 ```
 
-If you don't have a WooCommerce store handy, `dev-store/` brings up a disposable one via
-Docker (MySQL + WordPress + WooCommerce) and sets it up completely on its own — no manual
-wp-cli steps required:
-
+**2. Spin up a disposable WooCommerce store** (no account/signup needed — it builds and seeds
+itself automatically)
 ```bash
 cd dev-store
 docker compose up -d
-docker compose logs -f init   # watch it install WordPress, install WooCommerce, and seed data
+docker compose logs -f init
 ```
-
-The `init` container installs WordPress, installs and activates WooCommerce, seeds 3 fictional
-products and 4 fictional orders, generates a read-only REST API key, and prints it — look for
-lines like:
+Wait for it to finish (a minute or two the first time, while it downloads WordPress/WooCommerce).
+You'll see output ending in something like this — **copy the two highlighted lines**:
 ```
-CONSUMER_KEY=ck_...
-CONSUMER_SECRET=cs_...
+Seeding fictional products/orders and generating API credentials...
+Created 4 fictional orders.
+CONSUMER_KEY=ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx      <-- copy this (yours will differ)
+CONSUMER_SECRET=cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   <-- copy this (yours will differ)
+==================================================
+ Setup complete.
+ Store running at: http://localhost:8080
 ```
-Copy those (plus `WC_SITE_URL=http://localhost:8080`) into your `.env`. Re-running
-`docker compose up` is safe — `init` detects what's already set up and skips it.
+Press `Ctrl+C` to stop watching the logs (the store keeps running in the background).
 
-## Running the server
-
+**3. Add those credentials to your `.env`**
 ```bash
-npm run dev      # run directly with tsx
-# or
-npm run build && npm start
+cd ..
+cp .env.example .env
+```
+This creates a `.env` file with placeholder values:
+```
+WC_SITE_URL=http://localhost:8080
+WC_CONSUMER_KEY=ck_your_consumer_key_here
+WC_CONSUMER_SECRET=cs_your_consumer_secret_here
+```
+Open `.env` in any text editor and replace the two placeholder lines with the real values you
+copied in step 2 — delete `your_consumer_key_here` / `your_consumer_secret_here` entirely and
+paste in what was printed, keeping the `ck_`/`cs_` prefix:
+```
+WC_SITE_URL=http://localhost:8080
+WC_CONSUMER_KEY=ck_a1b2c3d4e5f6...        <- the value YOU got in step 2, not this example
+WC_CONSUMER_SECRET=cs_f6e5d4c3b2a1...     <- the value YOU got in step 2, not this example
 ```
 
-On success, stderr shows:
+**4. Run the automated test suite** — this is the fastest way to confirm everything works:
+```bash
+npm run smoke
 ```
-Authenticated against WooCommerce store at http://localhost:8080
-woocommerce-connector MCP server running on stdio
+You should see 9 lines of `PASS` and a final `9 passed, 0 failed`. If you see that, the
+connector is fully working end to end. 🎉
+
+---
+
+## Trying it out yourself (interactive)
+
+If you want to actually click a button and see a real response, rather than just reading test
+output:
+
+**1. Build and launch the MCP Inspector** (an official visual tool for poking at MCP servers)
+```bash
+npm run build
+npx @modelcontextprotocol/inspector node dist/src/server.js
 ```
+This opens a browser tab automatically (if it doesn't, copy the URL it prints — it looks like
+`http://127.0.0.1:6274?MCP_INSPECTOR_API_TOKEN=...`).
 
-On bad or missing credentials, it fails fast with a clear error and a non-zero exit code
-*before* any tool is advertised — it never silently starts in a half-authenticated state.
+**2. In the browser tab:** click **Connect** on the left, then open the **Tools** tab at the
+top, then click **List Tools**. You'll see three: `list_orders`, `get_order`, `search_orders`.
 
-## Connecting an MCP client
+**3. Click one and try these inputs:**
 
-Any stdio-based MCP client can run this as a subprocess. Example config block (the same shape
-Claude Desktop, MCP Inspector, and most agent platforms use):
+| Tool | Try this input | Expect |
+|---|---|---|
+| `list_orders` | *(leave empty)* | all 4 seeded orders |
+| `list_orders` | `{"status": "cancelled"}` | just the cancelled one |
+| `get_order` | `{"order_id": 14}` | Rahul Mehta's order |
+| `get_order` | `{"order_id": 999999}` | a clean "not found" message, not a crash |
+| `search_orders` | `{"query": "Priya"}` | Priya Nair's order |
+
+---
+
+## Running it for real (as an agent would)
+
+Point any MCP client at `dist/src/server.js`. Example config (same shape Claude Desktop, MCP
+Inspector, and Agent Studio all use):
 
 ```json
 {
@@ -86,6 +118,39 @@ Claude Desktop, MCP Inspector, and most agent platforms use):
 }
 ```
 
+Or just run it directly to see its startup log:
+```bash
+npm run dev
+```
+Success looks like:
+```
+Authenticated against WooCommerce store at http://localhost:8080
+woocommerce-connector MCP server running on stdio
+```
+Bad or missing credentials fail loudly right here, before any tool is advertised — it never
+silently starts half-broken.
+
+---
+
+## Troubleshooting
+
+- **"Docker is not running" / connection refused** — open Docker Desktop and wait for it to
+  fully start, then retry `docker compose up -d`.
+- **Port 8080 already in use** — something else on your machine is using it; stop that, or
+  change the `"8080:80"` port mapping in `dev-store/docker-compose.yml` and update `WC_SITE_URL`
+  to match.
+- **MCP Inspector errors with something about `zod/v4` or a missing module** — this is a
+  broken cached install, not a problem with this project. Delete the npx cache
+  (`%LOCALAPPDATA%\npm-cache\_npx` on Windows, `~/.npm/_npx` on Mac/Linux) and run the
+  `npx @modelcontextprotocol/inspector ...` command again.
+- **Inspector connects but shows "Missing WooCommerce credentials"** — make sure you ran
+  `npx @modelcontextprotocol/inspector ...` from inside the project folder (`D:\projects\connector`),
+  not some other directory — it needs to find `.env` relative to where it's launched from.
+- **Want to start over completely** — `cd dev-store && docker compose down -v` wipes the store
+  back to nothing; `docker compose up -d` rebuilds it fresh (you'll get a new API key).
+
+---
+
 ## Tools reference
 
 | Tool | Input | Returns |
@@ -95,16 +160,6 @@ Claude Desktop, MCP Inspector, and most agent platforms use):
 | `search_orders` | `query` (string, required) | orders matching the customer name/email/order number |
 
 See `CAPABILITIES.md` for the exact data shape and the full can/cannot boundary.
-
-## Testing
-
-```bash
-npm run smoke
-```
-
-Runs `test/smoke.ts` — 9 cases covering the list/get/search happy paths, the not-found and
-empty-search edge cases, bad-credential handling, and a simulated rate-limit retry. The retry
-case prints the actual `[retry] 429 ...` log line it captured, as evidence the logic fires.
 
 ## Rate limits & resilience
 
