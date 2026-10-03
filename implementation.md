@@ -114,7 +114,7 @@ credentials it logs confirmation (e.g. store name/URL) before accepting tool cal
 
 ---
 
-## Stage 3 — API client layer (`woocommerceClient.ts`)
+## Stage 3 — API client layer (`woocommerceClient.ts`) ✅ done
 
 Wrap the raw REST calls behind typed functions — this is the layer the MCP tools call, keeping
 auth/rate-limiting/retry logic in one place:
