@@ -92,7 +92,7 @@ dev credentials only).
 
 ---
 
-## Stage 2 — Authentication layer (`auth.ts`)
+## Stage 2 — Authentication layer (`auth.ts`) ✅ done
 
 - WooCommerce REST API auth over plain HTTP: **OAuth 1.0a one-legged authentication** —
   each request is signed with `oauth_consumer_key`, `oauth_nonce`, `oauth_signature_method`
