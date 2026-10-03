@@ -150,7 +150,7 @@ the live local instance where feasible.
 
 ---
 
-## Stage 5 — MCP tool layer (`tools/*.ts`, `server.ts`)
+## Stage 5 — MCP tool layer (`tools/*.ts`, `server.ts`) ✅ done
 
 - Register three read-only MCP tools, each with a JSON-schema input spec and a clear
   description:
