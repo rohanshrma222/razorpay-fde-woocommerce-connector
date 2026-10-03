@@ -169,7 +169,7 @@ and successfully calls all three tools against the local WooCommerce instance.
 
 ---
 
-## Stage 6 — Testing & validation
+## Stage 6 — Testing & validation ✅ done
 
 - `test/smoke.ts`: a plain script exercising each tool end-to-end against the local
   WooCommerce instance, printing pass/fail per case.
