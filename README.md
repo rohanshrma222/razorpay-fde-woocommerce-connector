@@ -28,21 +28,25 @@ cp .env.example .env
 # fill in WC_SITE_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET
 ```
 
-If you don't have a WooCommerce store handy, `dev-store/` brings up a disposable one via Docker
-(MySQL + WordPress + WooCommerce, seeded with fictional products/orders):
+If you don't have a WooCommerce store handy, `dev-store/` brings up a disposable one via
+Docker (MySQL + WordPress + WooCommerce) and sets it up completely on its own — no manual
+wp-cli steps required:
 
 ```bash
 cd dev-store
-docker compose up -d db wordpress
-docker compose run --rm --user root wpcli core install --url="http://localhost:8080" --title="MCP Demo Store" --admin_user=admin --admin_password=admin123 --admin_email=admin@example.test --skip-email
-docker compose run --rm --user root wpcli plugin install woocommerce --activate
-docker compose run --rm --user root wpcli rewrite structure '/%postname%/'
-docker compose run --rm --user root wpcli rewrite flush
-MSYS_NO_PATHCONV=1 docker compose run --rm --user root wpcli eval-file /seed.php
+docker compose up -d
+docker compose logs -f init   # watch it install WordPress, install WooCommerce, and seed data
 ```
 
-The last command prints a `CONSUMER_KEY`/`CONSUMER_SECRET` pair — put those (plus
-`WC_SITE_URL=http://localhost:8080`) in your `.env`.
+The `init` container installs WordPress, installs and activates WooCommerce, seeds 3 fictional
+products and 4 fictional orders, generates a read-only REST API key, and prints it — look for
+lines like:
+```
+CONSUMER_KEY=ck_...
+CONSUMER_SECRET=cs_...
+```
+Copy those (plus `WC_SITE_URL=http://localhost:8080`) into your `.env`. Re-running
+`docker compose up` is safe — `init` detects what's already set up and skips it.
 
 ## Running the server
 

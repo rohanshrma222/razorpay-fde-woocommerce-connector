@@ -2,6 +2,10 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
+    # wp-cli's bundled client tools (MariaDB-based) can't load MySQL 8's default
+    # caching_sha2_password plugin and also balk at its self-signed SSL cert —
+    # use the universally-compatible auth plugin and disable SSL for this local dev DB.
+    command: --default-authentication-plugin=mysql_native_password --skip-ssl
     environment:
       MYSQL_DATABASE: wordpress
       MYSQL_USER: wordpress
@@ -25,6 +29,27 @@ services:
     volumes:
       - wp_data:/var/www/html
 
+  # One-shot: installs WordPress + WooCommerce and seeds fictional data, then exits.
+  # Runs automatically on `docker compose up` — no manual wp-cli commands needed.
+  init:
+    image: wordpress:cli-php8.2
+    user: root
+    depends_on:
+      - wordpress
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp_data:/var/www/html
+      - ./seed.php:/seed.php:ro
+      - ./init.sh:/init.sh:ro
+    entrypoint: ["sh", "/init.sh"]
+
+  # Ad-hoc wp-cli access for manual follow-up commands, e.g.:
+  #   docker compose run --rm --user root wpcli plugin list
   wpcli:
     image: wordpress:cli-php8.2
     depends_on:
