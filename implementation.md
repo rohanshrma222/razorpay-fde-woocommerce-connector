@@ -132,7 +132,7 @@ module against the local WooCommerce instance.
 
 ---
 
-## Stage 4 — Rate-limit & resilience handling (`rateLimiter.ts`)
+## Stage 4 — Rate-limit & resilience handling (`rateLimiter.ts`) ✅ done
 
 - Single `requestWithRetry()` choke point every WooCommerce call goes through.
 - On HTTP 429 (if a host/CDN in front of WooCommerce ever imposes one): back off and retry

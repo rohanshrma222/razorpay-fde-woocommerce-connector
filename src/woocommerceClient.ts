@@ -1,4 +1,5 @@
 import { WooCommerceConfig, signRequestUrl } from "./auth.js";
+import { requestWithRetry, RequestOptions } from "./rateLimiter.js";
 import {
   NormalizedOrder,
   OrderStatus,
@@ -52,12 +53,16 @@ function normalizeOrder(raw: any): NormalizedOrder {
   };
 }
 
-async function fetchSigned(url: string, config: WooCommerceConfig): Promise<Response> {
+async function fetchSigned(
+  url: string,
+  config: WooCommerceConfig,
+  retryOpts?: RequestOptions
+): Promise<Response> {
   const signedUrl = signRequestUrl(url, "GET", config);
-  return fetch(signedUrl, { method: "GET", signal: AbortSignal.timeout(10000) });
+  return requestWithRetry(signedUrl, { method: "GET" }, retryOpts);
 }
 
-export function createWooCommerceClient(config: WooCommerceConfig) {
+export function createWooCommerceClient(config: WooCommerceConfig, retryOpts?: RequestOptions) {
   return {
     async listOrders(params: ListOrdersParams = {}): Promise<ListOrdersResult> {
       const { page = 1, perPage = 10, status } = params;
@@ -66,7 +71,7 @@ export function createWooCommerceClient(config: WooCommerceConfig) {
       url.searchParams.set("per_page", String(perPage));
       if (status) url.searchParams.set("status", status);
 
-      const res = await fetchSigned(url.toString(), config);
+      const res = await fetchSigned(url.toString(), config, retryOpts);
       if (!res.ok) {
         throw new WooCommerceHttpError(`Failed to list orders (HTTP ${res.status})`, res.status);
       }
@@ -76,7 +81,7 @@ export function createWooCommerceClient(config: WooCommerceConfig) {
 
     async getOrder(orderId: number): Promise<NormalizedOrder> {
       const url = `${config.siteUrl}/wp-json/wc/v3/orders/${orderId}`;
-      const res = await fetchSigned(url, config);
+      const res = await fetchSigned(url, config, retryOpts);
       if (res.status === 404) throw new OrderNotFoundError(orderId);
       if (!res.ok) {
         throw new WooCommerceHttpError(
@@ -92,7 +97,7 @@ export function createWooCommerceClient(config: WooCommerceConfig) {
       const url = new URL(`${config.siteUrl}/wp-json/wc/v3/orders`);
       url.searchParams.set("search", query);
 
-      const res = await fetchSigned(url.toString(), config);
+      const res = await fetchSigned(url.toString(), config, retryOpts);
       if (!res.ok) {
         throw new WooCommerceHttpError(`Failed to search orders (HTTP ${res.status})`, res.status);
       }

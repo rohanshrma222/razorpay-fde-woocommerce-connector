@@ -34,3 +34,10 @@ export class OrderNotFoundError extends WooCommerceHttpError {
     this.name = "OrderNotFoundError";
   }
 }
+
+export class RateLimitExceededError extends WooCommerceHttpError {
+  constructor(retries: number) {
+    super(`Still rate-limited (HTTP 429) after ${retries} retries`, 429);
+    this.name = "RateLimitExceededError";
+  }
+}
